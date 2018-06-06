@@ -57,14 +57,16 @@ module.exports.getUnsignedTokenForUserObjectId = function ( userObjectId, option
   }
 };
 
-// Procedure to generate unsigned token given a valid userObjectId
-let signToken = function ( unsignedToken ) {
+let getTokenSignature = function( unsignedToken ) {
 
-  let encodedSignature = crypto.createHmac( 'sha256', secret )
+  return crypto.createHmac( 'sha256', secret )
     .update( unsignedToken )
     .digest( 'base64' );
+};
 
-  return unsignedToken + '.' + encodedSignature;
+let signToken = function ( unsignedToken ) {
+
+  return unsignedToken + '.' + getTokenSignature( unsignedToken );
 };
 
 module.exports.getSignedTokenForUserObjectId = function ( userObjectId, options ) {
@@ -105,4 +107,24 @@ module.exports.getSignedTokenForUserObjectId = function ( userObjectId, options 
       userObjectId
     )
   );
+};
+
+module.exports.verifyToken = function( token ) {
+
+  // Split token into parts
+  let tokenParts = token.split('.');
+
+  // Decode given signature
+  let encodedSignature = tokenParts[ 2 ];
+  let decodedSignature = Buffer.from( encodedSignature, 'base64' ).toString( 'ascii' );
+
+  // Form valid signature
+  let encodedHeader = tokenParts[ 0 ];
+  let encodedPayload = tokenParts[ 1 ];
+  let unsignedToken = encodedHeader + '.' + encodedPayload;
+  let encodedValidSignature = getTokenSignature( unsignedToken );
+  let decodedValidSignature = Buffer.from( encodedValidSignature, 'base64' ).toString( 'ascii' );
+
+  // Return comparison
+  return decodedSignature === decodedValidSignature
 };

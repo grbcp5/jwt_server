@@ -48,4 +48,19 @@ router.get( '/:userObjectId', function ( req, res, next ) {
   } );
 } );
 
+router.get( '/verify/:token', function ( req, res, next ) {
+
+  token = req.params.token;
+
+  let responseObject = {
+    accepted: Token.verifyToken( token ),
+    error: null,
+    data: null
+  };
+
+  console.log( "Sending response: ", responseObject );
+  res.end( JSON.stringify( responseObject ) );
+
+} );
+
 module.exports = router;
