@@ -1,7 +1,9 @@
 let User = require( './users' );
 let crypto = require( 'crypto' );
+let uuid = require( 'uuid' );
 
-let secret = "jwt_server_token_secret";
+let secret = uuid.v4();
+
 let headerInfo = {
   typ: "JWT",
   alg: "HS256"
@@ -21,7 +23,7 @@ module.exports.getUnsignedTokenForUserObjectId = function ( userObjectId, option
       exp: now + 1000 * 60 * 60, // 1 hour
       nbf: now,
       iat: now,
-      jti: 0
+      jti: uuid.v4()
     };
 
     return encodedHeaderInfo
@@ -55,17 +57,17 @@ module.exports.getUnsignedTokenForUserObjectId = function ( userObjectId, option
   }
 };
 
+// Procedure to generate unsigned token given a valid userObjectId
+let signToken = function ( unsignedToken ) {
+
+  let encodedSignature = crypto.createHmac( 'sha256', secret )
+    .update( unsignedToken )
+    .digest( 'base64' );
+
+  return unsignedToken + '.' + encodedSignature;
+};
+
 module.exports.getSignedTokenForUserObjectId = function ( userObjectId, options ) {
-
-  // Procedure to generate unsigned token given a valid userObjectId
-  let signToken = function ( unsignedToken ) {
-
-    let encodedSignature = crypto.createHmac( 'sha256', secret )
-      .update( unsignedToken )
-      .digest( 'base64' );
-
-    return unsignedToken + '.' + encodedSignature;
-  };
 
   // If caller specified options
   if ( options ) {
