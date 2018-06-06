@@ -7,44 +7,45 @@ router.get( '/:userObjectId', function ( req, res, next ) {
 
   let userObjectId = req.params.userObjectId;
 
-  Token.getSignedTokenForUserObjectId( userObjectId, function ( error, data ) {
+  Token.getSignedTokenForUserObjectId( userObjectId, {
+    validateUserObjectId: true,
+    validateUserObjectIdCallback: function( error, token ) {
 
-    if( error ) {
+      if( error ) {
+
+        if( error.name === "CastError" ) {
+          let responseObject = {
+            accepted: false,
+            error: "User with id " + userObjectId + " not found.",
+            data: null
+          };
+
+          console.log( "Sending response: ", responseObject );
+          res.status( 404 ).end( JSON.stringify( responseObject ) );
+          return;
+        }
+
+        let responseObject = {
+          accepted: false,
+          error: error,
+          data: null
+        };
+
+        console.log( "Sending response: ", responseObject );
+        res.status( 500 ).end( JSON.stringify( responseObject ) );
+        return;
+      }
 
       let responseObject = {
-        accepted: false,
-        error: error,
-        data: null
+        accepted: true,
+        error: null,
+        data: token
       };
 
       console.log( "Sending response: ", responseObject );
-      res.status( 500 ).end( JSON.stringify( responseObject ) );
-      return;
+      res.end( JSON.stringify( responseObject ) );
     }
-
-    if( !data ) {
-      let responseObject = {
-        accepted: false,
-        error: "User with id " + userObjectId + " not found.",
-        data: null
-      };
-
-      console.log( "Sending response: ", responseObject );
-      res.status( 404 ).end( JSON.stringify( responseObject ) );
-      return;
-    }
-
-
-    let responseObject = {
-      accepted: true,
-      error: null,
-      data: data
-    };
-
-    console.log( "Sending response: ", responseObject );
-    res.end( JSON.stringify( responseObject ) );
   } );
-
 } );
 
 module.exports = router;

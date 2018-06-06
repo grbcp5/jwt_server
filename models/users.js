@@ -28,3 +28,9 @@ module.exports.getUserByUserObjectId = function ( userObjectId, callback ) {
   User.findById( userObjectId, callback );
 
 };
+
+module.exports.validateUserObjectId = function ( userObjectId, callback ) {
+
+  User.findById( userObjectId, '_id', callback );
+
+};

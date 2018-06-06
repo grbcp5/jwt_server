@@ -1,5 +1,5 @@
-let User = require('./users' );
-let crypto = require('crypto');
+let User = require( './users' );
+let crypto = require( 'crypto' );
 
 let secret = "jwt_server_token_secret";
 let headerInfo = {
@@ -8,25 +8,15 @@ let headerInfo = {
 };
 let encodedHeaderInfo = Buffer.from( JSON.stringify( headerInfo ) ).toString( 'base64' );
 
-module.exports.getUnsignedTokenForUserObjectId = function( userObjectId, callback ) {
+module.exports.getUnsignedTokenForUserObjectId = function ( userObjectId, options ) {
 
-  User.getUserByUserObjectId( userObjectId, function( error, data ) {
-
-    if( error ) {
-
-      if( error.name === "CastError" ) {
-        callback( null, null );
-        return;
-      }
-
-      callback( error, null );
-      return;
-    }
+  // Procedure to generate unsigned token given a valid userObjectId
+  let generateUnsignedToken = function ( userObjId ) {
 
     let now = Date.now();
     let payload = {
       iss: "jwt_server",
-      sub: data.id,
+      sub: userObjectId,
       aud: "public",
       exp: now + 1000 * 60 * 60, // 1 hour
       nbf: now,
@@ -34,38 +24,83 @@ module.exports.getUnsignedTokenForUserObjectId = function( userObjectId, callbac
       jti: 0
     };
 
-    let unsignedToken = encodedHeaderInfo
+    return encodedHeaderInfo
       + '.'
       + Buffer.from( JSON.stringify( payload ) ).toString( 'base64' );
+  };
 
-    callback( null, unsignedToken );
+  // If caller specified options
+  if ( options ) {
 
-  } );
+    // If user wants to first validate the users
+    if ( options.validateUserObjectId && options.validateUserObjectIdCallback ) {
 
+      User.validateUserObjectId( userObjectId, function ( error, userObjectId ) {
+
+        if ( error ) {
+          options.validateUserObjectIdCallback( error, null );
+          return;
+        }
+
+        options.validateUserObjectIdCallback(
+          null,
+          generateUnsignedToken( userObjectId )
+        );
+      } );
+
+      return;
+    }
+
+    return generateUnsignedToken( userObjectId );
+  }
 };
 
-module.exports.getSignedTokenForUserObjectId = function( userObjectId, callback ) {
+module.exports.getSignedTokenForUserObjectId = function ( userObjectId, options ) {
 
-  module.exports.getUnsignedTokenForUserObjectId( userObjectId, function ( error, unsignedToken ) {
+  // Procedure to generate unsigned token given a valid userObjectId
+  let signToken = function ( unsignedToken ) {
 
-    if( error ) {
+    let encodedSignature = crypto.createHmac( 'sha256', secret )
+      .update( unsignedToken )
+      .digest( 'base64' );
 
-      callback( error, null );
+    return unsignedToken + '.' + encodedSignature;
+  };
+
+  // If caller specified options
+  if ( options ) {
+
+    // If user wants to first validate the users
+    if ( options.validateUserObjectId && options.validateUserObjectIdCallback ) {
+
+      let optionsForGenerateUnsignedTokenProcedure = {
+        validateUserObjectId: true,
+        validateUserObjectIdCallback: function ( error, unsignedToken ) {
+
+          if ( error ) {
+            options.validateUserObjectIdCallback( error, null );
+            return;
+          }
+
+          options.validateUserObjectIdCallback(
+            null,
+            signToken( unsignedToken )
+          );
+        }
+      };
+
+      module.exports.getUnsignedTokenForUserObjectId(
+        userObjectId,
+        optionsForGenerateUnsignedTokenProcedure
+      );
+
       return;
     }
+  }
 
-    if( !unsignedToken ) {
-      callback( null, null );
-      return;
-    }
-
-    let encodedSignature = crypto.createHmac('sha256', secret)
-      .update(unsignedToken)
-      .digest('base64');
-
-    let signedToken = unsignedToken + '.' + encodedSignature;
-
-    callback( null, signedToken )
-  } );
-
+  return signToken(
+    module.exports.getUnsignedTokenForUserObjectId(
+      userObjectId
+    )
+  );
 };
